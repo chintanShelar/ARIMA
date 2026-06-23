@@ -5,6 +5,27 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 @st.cache_data(ttl=86400)
+def fetch_company_profile(ticker: str) -> dict:
+    """Extracts fundamental corporate data for the stylish overview."""
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        
+        # Truncate summary so it doesn't overwhelm the UI
+        summary = info.get("longBusinessSummary", "Corporate summary currently unavailable.")
+        if len(summary) > 400:
+            summary = summary[:397] + "..."
+            
+        return {
+            "name": info.get("longName", ticker),
+            "sector": info.get("sector", "Sector Unknown"),
+            "industry": info.get("industry", "Industry Unknown"),
+            "summary": summary
+        }
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=86400)
 def load_data(ticker: str) -> pd.DataFrame:
     """Fetches the last 5 years of daily stock data."""
     end_date = date.today()
@@ -22,7 +43,7 @@ def load_data(ticker: str) -> pd.DataFrame:
         data = data.ffill().bfill()
         return data
     except Exception as e:
-        st.error(f"Failed to fetch data: {e}")
+        st.error(f"System encountered an error during data retrieval: {e}")
         return pd.DataFrame()
 
 def validate_data(data: pd.DataFrame, min_obs: int = 200) -> bool:
