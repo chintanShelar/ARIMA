@@ -19,6 +19,9 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #1A202C; border-right: 1px solid #2D3748; }
     [data-testid="stDataFrame"] { border-radius: 8px; border: 1px solid #2D3748; }
     
+    /* Expander / Dropdown Styling */
+    .streamlit-expanderHeader { color: #00E5FF !important; font-weight: 600; font-family: 'Inter', sans-serif; }
+    
     .stButton>button {
         background-color: #00E5FF; color: #000000; font-weight: 600;
         border-radius: 6px; border: none; transition: all 0.3s ease;
@@ -82,7 +85,7 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     target_col = 'Adj Close' if 'Adj Close' in df.columns else 'Close'
     series = df[target_col].dropna()
     
-    # --- SECTION 1 ---
+    # --- SECTION 1: Context & Historical Data ---
     st.header("1. Asset Profile & Historical Context")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Asset Symbol", ticker)
@@ -91,6 +94,10 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     col4.metric("Total Observations", len(series))
     
     st.plotly_chart(plot_historical(df, ticker), use_container_width=True)
+    
+    # Dropdown for raw historical matrix
+    with st.expander("📊 Inspect Raw Historical Ledger"):
+        st.dataframe(df.sort_index(ascending=False), use_container_width=True, height=250)
     
     train, test = split_data(series)
     
@@ -101,6 +108,7 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
         fitted_model, predictions = evaluate_model(train, test, best_order)
         metrics = calculate_metrics(test.values, predictions.values)
 
+    # --- SECTION 2: Model Architecture ---
     st.header("2. Model Architecture & Statistical Validation")
     colA, colB, colC = st.columns(3)
     colA.metric("Optimal ARIMA Vector", str(best_order))
@@ -112,6 +120,7 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     with st.spinner(f"Projecting valuation trajectories through {target_date}..."):
         forecast_df = forecast_future(series, best_order, target_date)
 
+    # --- SECTION 3: Horizon & Projection Data ---
     st.header(f"3. Strategic Forecast Horizon ({target_date})")
     fc1, fc2, fc3 = st.columns(3)
     fc1.metric("Terminal Projected Valuation", f"₹{forecast_df['Forecast'].iloc[-1]:.2f}")
@@ -119,3 +128,38 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     fc3.metric("Minimum Projected Bound", f"₹{forecast_df['Forecast'].min():.2f}")
     
     st.plotly_chart(plot_forecast(series, forecast_df), use_container_width=True)
+    
+    # Dropdown for raw forecast matrix
+    with st.expander("🔮 Inspect Projected Valuation Ledger"):
+        st.dataframe(forecast_df, use_container_width=True, height=250)
+        
+    st.divider()
+
+    # --- SECTION 4: Data Extraction ---
+    st.header("4. Quantitative Artifacts")
+    st.markdown("<p style='color: #A0AEC0; font-size: 0.95rem; margin-bottom: 1rem;'>Export the raw matrices to CSV for downstream processing or external dashboarding (e.g., Tableau).</p>", unsafe_allow_html=True)
+    
+    @st.cache_data
+    def convert_df(df_to_convert):
+        return df_to_convert.to_csv().encode('utf-8')
+        
+    hist_csv = convert_df(df)
+    forecast_csv = convert_df(forecast_df)
+    
+    dl_col1, dl_col2 = st.columns(2)
+    
+    dl_col1.download_button(
+        label="⬇️ Export Historical Matrix (CSV)",
+        data=hist_csv,
+        file_name=f"{ticker}_historical_data.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+    
+    dl_col2.download_button(
+        label="⬇️ Export Projection Matrix (CSV)",
+        data=forecast_csv,
+        file_name=f"{ticker}_forecast_2027.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
