@@ -6,7 +6,7 @@ from utils.metrics import calculate_metrics
 from utils.visualization import plot_historical, plot_actual_vs_predicted, plot_forecast
 
 # Setup UI configuration
-st.set_page_config(page_title="Global Quantitative Forecasting", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Quantitative Forecasting System", layout="wide", initial_sidebar_state="expanded")
 
 # --- CUSTOM CSS INJECTION ---
 st.markdown("""
@@ -44,14 +44,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌍 Global Quantitative Forecasting")
-st.markdown("<p style='color: #A0AEC0; font-size: 1.1rem;'>Leveraging AutoRegressive Integrated Moving Average (ARIMA) models to project long-term global asset valuations.</p>", unsafe_allow_html=True)
+st.title("🏛️ Institutional Quantitative Forecasting")
+st.markdown("<p style='color: #A0AEC0; font-size: 1.1rem;'>Leveraging AutoRegressive Integrated Moving Average (ARIMA) models to project long-term asset valuations.</p>", unsafe_allow_html=True)
 st.divider()
 
 # --- SIDEBAR ---
 st.sidebar.header("⚙️ Model Parameters")
-st.sidebar.markdown("<p style='color: #A0AEC0; font-size: 0.85rem;'>Enter any global Yahoo Finance ticker (e.g., AAPL, TSLA, INFY.NS, LSEG.L)</p>", unsafe_allow_html=True)
-ticker = st.sidebar.text_input("Target Asset Ticker:", "AAPL").upper()
+ticker = st.sidebar.text_input("Target Asset Ticker:", "RELIANCE.NS").upper()
 target_date = '2027-06-30'
 st.sidebar.markdown(f"**Projection Horizon:** `{target_date}`")
 
@@ -65,7 +64,7 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
         st.error("Error: Target asset ticker is required for analysis.")
         st.stop()
         
-    with st.spinner("Retrieving global market data and corporate profile..."):
+    with st.spinner("Retrieving institutional market data and corporate profile..."):
         df = load_data(ticker)
         profile = fetch_company_profile(ticker)
         
@@ -90,12 +89,13 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     st.header("1. Asset Profile & Historical Context")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Asset Symbol", ticker)
-    col2.metric("Latest Valuation", f"{series.iloc[-1]:.2f}")
+    col2.metric("Latest Valuation", f"₹{series.iloc[-1]:.2f}")
     col3.metric("Data Horizon", f"{series.index[0].date()} to {series.index[-1].date()}")
     col4.metric("Total Observations", len(series))
     
     st.plotly_chart(plot_historical(df, ticker), use_container_width=True)
     
+    # Dropdown for raw historical matrix
     with st.expander("📊 Inspect Raw Historical Ledger"):
         st.dataframe(df.sort_index(ascending=False), use_container_width=True, height=250)
     
@@ -123,12 +123,13 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     # --- SECTION 3: Horizon & Projection Data ---
     st.header(f"3. Strategic Forecast Horizon ({target_date})")
     fc1, fc2, fc3 = st.columns(3)
-    fc1.metric("Terminal Projected Valuation", f"{forecast_df['Forecast'].iloc[-1]:.2f}")
-    fc2.metric("Maximum Projected Bound", f"{forecast_df['Forecast'].max():.2f}")
-    fc3.metric("Minimum Projected Bound", f"{forecast_df['Forecast'].min():.2f}")
+    fc1.metric("Terminal Projected Valuation", f"₹{forecast_df['Forecast'].iloc[-1]:.2f}")
+    fc2.metric("Maximum Projected Bound", f"₹{forecast_df['Forecast'].max():.2f}")
+    fc3.metric("Minimum Projected Bound", f"₹{forecast_df['Forecast'].min():.2f}")
     
     st.plotly_chart(plot_forecast(series, forecast_df), use_container_width=True)
     
+    # Dropdown for raw forecast matrix
     with st.expander("🔮 Inspect Projected Valuation Ledger"):
         st.dataframe(forecast_df, use_container_width=True, height=250)
         
@@ -136,7 +137,7 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
 
     # --- SECTION 4: Data Extraction ---
     st.header("4. Quantitative Artifacts")
-    st.markdown("<p style='color: #A0AEC0; font-size: 0.95rem; margin-bottom: 1rem;'>Export the raw matrices to CSV for downstream processing or external dashboarding.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #A0AEC0; font-size: 0.95rem; margin-bottom: 1rem;'>Export the raw matrices to CSV for downstream processing or external dashboarding (e.g., Tableau).</p>", unsafe_allow_html=True)
     
     @st.cache_data
     def convert_df(df_to_convert):
