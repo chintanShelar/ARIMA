@@ -1,56 +1,63 @@
 import streamlit as st
 import pandas as pd
-from utils.data_loader import load_data, validate_data, fetch_company_profile
+from utils.data_loader import load_data, validate_data, fetch_company_profile, search_asset_directory
 from utils.forecasting import split_data, find_best_arima, evaluate_model, forecast_future
 from utils.metrics import calculate_metrics
 from utils.visualization import plot_historical, plot_actual_vs_predicted, plot_forecast
 
-# Setup UI configuration
-st.set_page_config(page_title="Quantitative Forecasting System", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Global Quantitative Forecasting", layout="wide", initial_sidebar_state="expanded")
 
-# --- CUSTOM CSS INJECTION ---
 st.markdown("""
 <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
     h1, h2, h3 { color: #FFFFFF !important; font-family: 'Inter', sans-serif; }
-    
     [data-testid="stMetricValue"] { color: #00E5FF !important; font-size: 2.2rem !important; font-weight: 700; }
     [data-testid="stMetricLabel"] { color: #A0AEC0 !important; font-size: 1rem !important; font-weight: 500; }
     [data-testid="stSidebar"] { background-color: #1A202C; border-right: 1px solid #2D3748; }
     [data-testid="stDataFrame"] { border-radius: 8px; border: 1px solid #2D3748; }
-    
-    /* Expander / Dropdown Styling */
     .streamlit-expanderHeader { color: #00E5FF !important; font-weight: 600; font-family: 'Inter', sans-serif; }
-    
-    .stButton>button {
-        background-color: #00E5FF; color: #000000; font-weight: 600;
-        border-radius: 6px; border: none; transition: all 0.3s ease;
-    }
+    .stButton>button { background-color: #00E5FF; color: #000000; font-weight: 600; border-radius: 6px; border: none; transition: all 0.3s ease; }
     .stButton>button:hover { background-color: #00B8D4; box-shadow: 0 4px 12px rgba(0, 229, 255, 0.4); }
     hr { border-color: #2D3748 !important; }
-    
-    /* Custom Corporate Profile Card */
-    .profile-card {
-        background-color: #1A202C;
-        padding: 24px;
-        border-radius: 8px;
-        border-left: 4px solid #00E5FF;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+    .profile-card { background-color: #1A202C; padding: 24px; border-radius: 8px; border-left: 4px solid #00E5FF; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
     .profile-title { margin-top: 0; color: #FFFFFF; font-size: 1.8rem; font-weight: 600; margin-bottom: 8px;}
     .profile-subtitle { color: #00E5FF; font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;}
     .profile-summary { color: #A0AEC0; font-size: 1rem; line-height: 1.6; margin-bottom: 0;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🏛️ Institutional Quantitative Forecasting")
-st.markdown("<p style='color: #A0AEC0; font-size: 1.1rem;'>Leveraging AutoRegressive Integrated Moving Average (ARIMA) models to project long-term asset valuations.</p>", unsafe_allow_html=True)
+st.title("🌍 Global Quantitative Forecasting")
+st.markdown("<p style='color: #A0AEC0; font-size: 1.1rem;'>Leveraging AutoRegressive Integrated Moving Average (ARIMA) models to project long-term global asset valuations.</p>", unsafe_allow_html=True)
 st.divider()
 
+# --- SESSION STATE INITIALIZATION ---
+if 'search_results' not in st.session_state:
+    st.session_state.search_results = {"Apple Inc. (AAPL) - NASDAQ": "AAPL"}
+if 'target_ticker' not in st.session_state:
+    st.session_state.target_ticker = "AAPL"
+
 # --- SIDEBAR ---
+st.sidebar.header("🔍 Asset Directory")
+search_query = st.sidebar.text_input("Search by Company Name or Ticker:", placeholder="e.g., Apple, Tata, Sony")
+
+if st.sidebar.button("Scan Market Data", use_container_width=True):
+    with st.spinner("Pinging global exchanges..."):
+        results = search_asset_directory(search_query)
+        if results:
+            st.session_state.search_results = results
+        else:
+            st.sidebar.error("No assets found. Refine your search.")
+
+st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Model Parameters")
-ticker = st.sidebar.text_input("Target Asset Ticker:", "RELIANCE.NS").upper()
+
+# The Dropdown populated by the search
+selected_label = st.sidebar.selectbox(
+    "Select Verified Asset:", 
+    options=list(st.session_state.search_results.keys())
+)
+st.session_state.target_ticker = st.session_state.search_results.get(selected_label, "AAPL")
+
 target_date = '2027-06-30'
 st.sidebar.markdown(f"**Projection Horizon:** `{target_date}`")
 
@@ -59,12 +66,10 @@ p_max = st.sidebar.slider("Max AutoRegressive Terms (p)", 1, 5, 2)
 d_max = st.sidebar.slider("Max Differencing Order (d)", 0, 2, 1)
 q_max = st.sidebar.slider("Max Moving Average Terms (q)", 1, 5, 2)
 
-if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
-    if not ticker:
-        st.error("Error: Target asset ticker is required for analysis.")
-        st.stop()
-        
-    with st.spinner("Retrieving institutional market data and corporate profile..."):
+if st.sidebar.button("Execute Quantitative Analysis", type="primary", use_container_width=True):
+    ticker = st.session_state.target_ticker
+    
+    with st.spinner(f"Retrieving institutional market data for {ticker}..."):
         df = load_data(ticker)
         profile = fetch_company_profile(ticker)
         
@@ -72,7 +77,6 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
         st.error("Error: Insufficient historical data or invalid ticker symbol.")
         st.stop()
         
-    # --- CORPORATE OVERVIEW CARD ---
     if profile:
         st.markdown(f"""
         <div class="profile-card">
@@ -85,17 +89,15 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     target_col = 'Adj Close' if 'Adj Close' in df.columns else 'Close'
     series = df[target_col].dropna()
     
-    # --- SECTION 1: Context & Historical Data ---
     st.header("1. Asset Profile & Historical Context")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Asset Symbol", ticker)
-    col2.metric("Latest Valuation", f"₹{series.iloc[-1]:.2f}")
+    col2.metric("Latest Valuation", f"{series.iloc[-1]:.2f}")
     col3.metric("Data Horizon", f"{series.index[0].date()} to {series.index[-1].date()}")
     col4.metric("Total Observations", len(series))
     
     st.plotly_chart(plot_historical(df, ticker), use_container_width=True)
     
-    # Dropdown for raw historical matrix
     with st.expander("📊 Inspect Raw Historical Ledger"):
         st.dataframe(df.sort_index(ascending=False), use_container_width=True, height=250)
     
@@ -108,7 +110,6 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
         fitted_model, predictions = evaluate_model(train, test, best_order)
         metrics = calculate_metrics(test.values, predictions.values)
 
-    # --- SECTION 2: Model Architecture ---
     st.header("2. Model Architecture & Statistical Validation")
     colA, colB, colC = st.columns(3)
     colA.metric("Optimal ARIMA Vector", str(best_order))
@@ -120,24 +121,21 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     with st.spinner(f"Projecting valuation trajectories through {target_date}..."):
         forecast_df = forecast_future(series, best_order, target_date)
 
-    # --- SECTION 3: Horizon & Projection Data ---
     st.header(f"3. Strategic Forecast Horizon ({target_date})")
     fc1, fc2, fc3 = st.columns(3)
-    fc1.metric("Terminal Projected Valuation", f"₹{forecast_df['Forecast'].iloc[-1]:.2f}")
-    fc2.metric("Maximum Projected Bound", f"₹{forecast_df['Forecast'].max():.2f}")
-    fc3.metric("Minimum Projected Bound", f"₹{forecast_df['Forecast'].min():.2f}")
+    fc1.metric("Terminal Projected Valuation", f"{forecast_df['Forecast'].iloc[-1]:.2f}")
+    fc2.metric("Maximum Projected Bound", f"{forecast_df['Forecast'].max():.2f}")
+    fc3.metric("Minimum Projected Bound", f"{forecast_df['Forecast'].min():.2f}")
     
     st.plotly_chart(plot_forecast(series, forecast_df), use_container_width=True)
     
-    # Dropdown for raw forecast matrix
     with st.expander("🔮 Inspect Projected Valuation Ledger"):
         st.dataframe(forecast_df, use_container_width=True, height=250)
         
     st.divider()
 
-    # --- SECTION 4: Data Extraction ---
     st.header("4. Quantitative Artifacts")
-    st.markdown("<p style='color: #A0AEC0; font-size: 0.95rem; margin-bottom: 1rem;'>Export the raw matrices to CSV for downstream processing or external dashboarding (e.g., Tableau).</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #A0AEC0; font-size: 0.95rem; margin-bottom: 1rem;'>Export the raw matrices to CSV for downstream processing or external dashboarding.</p>", unsafe_allow_html=True)
     
     @st.cache_data
     def convert_df(df_to_convert):
@@ -148,18 +146,5 @@ if st.sidebar.button("Execute Quantitative Analysis", type="primary"):
     
     dl_col1, dl_col2 = st.columns(2)
     
-    dl_col1.download_button(
-        label="⬇️ Export Historical Matrix (CSV)",
-        data=hist_csv,
-        file_name=f"{ticker}_historical_data.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-    
-    dl_col2.download_button(
-        label="⬇️ Export Projection Matrix (CSV)",
-        data=forecast_csv,
-        file_name=f"{ticker}_forecast_2027.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
+    dl_col1.download_button("⬇️ Export Historical Matrix (CSV)", data=hist_csv, file_name=f"{ticker}_historical_data.csv", mime="text/csv", use_container_width=True)
+    dl_col2.download_button("⬇️ Export Projection Matrix (CSV)", data=forecast_csv, file_name=f"{ticker}_forecast_2027.csv", mime="text/csv", use_container_width=True)
